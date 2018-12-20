@@ -830,7 +830,6 @@ impl From<Uri> for Parts {
 }
 
 fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
-    println!("bytes: {:?}", s);
     // Parse the scheme
     let scheme = match Scheme2::parse(&s[..]).map_err(InvalidUriBytes)? {
         Scheme2::None => Scheme2::None,
@@ -853,12 +852,10 @@ fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
         }
     };
 
-    println!("scheme disposed bytes: {:?}", s);
-
     // Find the end of the authority. The scheme will already have been
     // extracted.
     let authority_end = Authority::parse(&s[..]).map_err(InvalidUriBytes)?;
-    println!("authority end: {}", authority_end);
+
     if scheme.is_none() {
         if authority_end != s.len() {
             return Err(ErrorKind::InvalidFormat.into());
@@ -886,13 +883,10 @@ fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
         data: unsafe { ByteStr::from_utf8_unchecked(authority) },
     };
 
-    println!("authority disposed bytes: {:?}", s);
     let path_and_query_end = PathAndQuery::parse(&s[..]).map_err(InvalidUriBytes)?;
 
     let path_and_query = s.split_to(path_and_query_end);
     let path_and_query = PathAndQuery::from_shared(path_and_query)?;
-
-    println!("path disposed bytes: {:?}", s);
 
     let fragment = Fragment::from_shared(s);
 

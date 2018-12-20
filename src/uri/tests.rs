@@ -443,10 +443,8 @@ fn test_uri_to_path_and_query() {
 
     for case in cases {
         let uri = Uri::from_str(case.0).unwrap();
-        println!("uri: {:?}", uri);
         let s = uri.path_and_query().unwrap().to_string();
 
-        println!("uri: {:?} path_and_query: {:?} fragment: {:?}", uri, s, uri.fragment());
         assert_eq!(s, case.1);
     }
 }
