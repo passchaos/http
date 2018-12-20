@@ -70,9 +70,9 @@ impl StatusCode {
     /// ```
     #[inline]
     pub fn from_u16(src: u16) -> Result<StatusCode, InvalidStatusCode> {
-        if src < 100 || src >= 600 {
-            return Err(InvalidStatusCode::new());
-        }
+        // if src < 100 || src >= 600 {
+        //     return Err(InvalidStatusCode::new());
+        // }
 
         Ok(StatusCode(src))
     }

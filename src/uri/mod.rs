@@ -42,12 +42,14 @@ pub use self::builder::Builder;
 pub use self::path::PathAndQuery;
 pub use self::scheme::Scheme;
 pub use self::port::Port;
+pub use self::fragment::Fragment;
 
 mod authority;
 mod builder;
 mod path;
 mod port;
 mod scheme;
+mod fragment;
 #[cfg(test)]
 mod tests;
 
@@ -100,6 +102,7 @@ pub struct Uri {
     scheme: Scheme,
     authority: Authority,
     path_and_query: PathAndQuery,
+    fragment: Fragment,
 }
 
 /// The various parts of a URI.
@@ -116,6 +119,8 @@ pub struct Parts {
     /// The origin-form component of a URI
     pub path_and_query: Option<PathAndQuery>,
 
+    /// The fragment component of a URI
+    pub fragment: Option<Fragment>,
     /// Allow extending in the future
     _priv: (),
 }
@@ -233,10 +238,16 @@ impl Uri {
             None => PathAndQuery::empty(),
         };
 
+        let fragment = match src.fragment {
+            Some(fragment) => fragment,
+            None => Fragment::empty(),
+        };
+
         Ok(Uri {
             scheme: scheme,
             authority: authority,
             path_and_query: path_and_query,
+            fragment: fragment,
         })
     }
 
@@ -262,7 +273,7 @@ impl Uri {
     /// assert_eq!(uri.path(), "/foo");
     /// # }
     /// ```
-    pub fn from_shared(s: Bytes) -> Result<Uri, InvalidUriBytes> {
+    pub fn from_shared(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
         use self::ErrorKind::*;
 
         if s.len() > MAX_LEN {
@@ -280,6 +291,7 @@ impl Uri {
                             scheme: Scheme::empty(),
                             authority: Authority::empty(),
                             path_and_query: PathAndQuery::slash(),
+                            fragment: Fragment::empty(),
                         });
                     }
                     b'*' => {
@@ -287,6 +299,7 @@ impl Uri {
                             scheme: Scheme::empty(),
                             authority: Authority::empty(),
                             path_and_query: PathAndQuery::star(),
+                            fragment: Fragment::empty(),
                         });
                     }
                     _ => {
@@ -296,6 +309,7 @@ impl Uri {
                             scheme: Scheme::empty(),
                             authority: authority,
                             path_and_query: PathAndQuery::empty(),
+                            fragment: Fragment::empty(),
                         });
                     }
                 }
@@ -304,10 +318,16 @@ impl Uri {
         }
 
         if s[0] == b'/' {
+            let path_and_query_end = PathAndQuery::parse(&s[..]).map_err(InvalidUriBytes)?;
+            let path_and_query = s.split_to(path_and_query_end);
+            let path_and_query = PathAndQuery::from_shared(path_and_query)?;
+
+            let fragment = Fragment::from_shared(s);
             return Ok(Uri {
                 scheme: Scheme::empty(),
                 authority: Authority::empty(),
-                path_and_query: PathAndQuery::from_shared(s)?,
+                path_and_query: path_and_query,
+                fragment: fragment,
             });
         }
 
@@ -671,6 +691,16 @@ impl Uri {
         self.path_and_query.query()
     }
 
+    /// Get the fragment of this `Uri`
+    #[inline]
+    pub fn fragment(&self) -> Option<&str> {
+        if self.fragment.data.is_empty() {
+            None
+        } else {
+            Some(self.fragment.as_str())
+        }
+    }
+
     fn has_path(&self) -> bool {
         !self.path_and_query.data.is_empty() || !self.scheme.inner.is_none()
     }
@@ -783,16 +813,24 @@ impl From<Uri> for Parts {
             Some(src.authority)
         };
 
+        let fragment = if src.fragment.data.is_empty() {
+            None
+        } else {
+            Some(src.fragment)
+        };
+
         Parts {
             scheme: scheme,
             authority: authority,
             path_and_query: path_and_query,
+            fragment: fragment,
             _priv: (),
         }
     }
 }
 
 fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
+    println!("bytes: {:?}", s);
     // Parse the scheme
     let scheme = match Scheme2::parse(&s[..]).map_err(InvalidUriBytes)? {
         Scheme2::None => Scheme2::None,
@@ -815,10 +853,12 @@ fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
         }
     };
 
+    println!("scheme disposed bytes: {:?}", s);
+
     // Find the end of the authority. The scheme will already have been
     // extracted.
     let authority_end = Authority::parse(&s[..]).map_err(InvalidUriBytes)?;
-
+    println!("authority end: {}", authority_end);
     if scheme.is_none() {
         if authority_end != s.len() {
             return Err(ErrorKind::InvalidFormat.into());
@@ -832,6 +872,7 @@ fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
             scheme: scheme.into(),
             authority: authority,
             path_and_query: PathAndQuery::empty(),
+            fragment: Fragment::empty(),
         });
     }
 
@@ -845,10 +886,21 @@ fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
         data: unsafe { ByteStr::from_utf8_unchecked(authority) },
     };
 
+    println!("authority disposed bytes: {:?}", s);
+    let path_and_query_end = PathAndQuery::parse(&s[..]).map_err(InvalidUriBytes)?;
+
+    let path_and_query = s.split_to(path_and_query_end);
+    let path_and_query = PathAndQuery::from_shared(path_and_query)?;
+
+    println!("path disposed bytes: {:?}", s);
+
+    let fragment = Fragment::from_shared(s);
+
     Ok(Uri {
         scheme: scheme.into(),
         authority: authority,
-        path_and_query: PathAndQuery::from_shared(s)?,
+        path_and_query: path_and_query,
+        fragment: fragment,
     })
 }
 
@@ -990,6 +1042,7 @@ impl Default for Uri {
             scheme: Scheme::empty(),
             authority: Authority::empty(),
             path_and_query: PathAndQuery::slash(),
+            fragment: Fragment::empty(),
         }
     }
 }

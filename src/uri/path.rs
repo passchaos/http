@@ -86,6 +86,48 @@ impl PathAndQuery {
         })
     }
 
+    pub(super) fn parse(s: &[u8]) -> Result<usize, InvalidUri> {
+        let mut query = NONE;
+
+        let mut i = 0;
+
+        while i < s.len() {
+            let b = s[i];
+
+            match URI_CHARS[b as usize] {
+                0 if b == b'%' => {}
+                0 if query != NONE => {
+                    // While queries *should* be percent-encoded, most
+                    // bytes are actually allowed...
+                    // See https://url.spec.whatwg.org/#query-state
+                    //
+                    // Allowed: 0x21 / 0x24 - 0x3B / 0x3D / 0x3F - 0x7E
+                    match b {
+                        0x21 |
+                        0x24...0x3B |
+                        0x3D |
+                        0x3F...0x7E => {},
+                        _ => return Err(ErrorKind::InvalidUriChar.into()),
+                    }
+                }
+                0 => return Err(ErrorKind::InvalidUriChar.into()),
+                b'?' => {
+                    if query == NONE {
+                        query = i as u16;
+                    }
+                }
+                b'#' => {
+                    break;
+                }
+                _ => {}
+            }
+
+            i += 1;
+        }
+
+        Ok(i)
+    }
+
     /// Convert a `PathAndQuery` from a static string.
     ///
     /// This function will not perform any copying, however the string is
