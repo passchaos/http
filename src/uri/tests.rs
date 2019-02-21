@@ -473,17 +473,24 @@ fn test_partial_eq_path_with_terminating_questionmark() {
 #[test]
 fn test_fragment() {
     let a = "https://example.com/data.csv#row=4";
-    let uri = Uri::from_str(a).expect("parse failed");
-
-    assert_eq!(uri.fragment().unwrap(), "row=4");
+    let uri_0 = Uri::from_str(a).expect("parse failed");
+    println!("uri: {:?}", uri_0);
+    assert_eq!(uri_0.fragment().unwrap(), "row=4");
 
     let a = "https://example.com/data.csv#";
-    let uri = Uri::from_str(a).expect("parse failed");
+    let uri_1 = Uri::from_str(a).expect("parse failed");
+    println!("uri: {:?}", uri_1);
+    assert_eq!(uri_1.fragment().unwrap(), "");
 
-    assert_eq!(uri.fragment(), None);
+    assert_ne!(uri_0, uri_1);
 
     let a = "https://example.com/data.csv?a=bc";
     let uri = Uri::from_str(a).expect("parse failed");
-
+    println!("uri: {:?}", uri);
     assert_eq!(uri.fragment(), None);
+
+    let a = "https://example.com/data.csv?";
+    let uri = Uri::from_str(a).expect("parse failed");
+    println!("uri: {:?}", uri);
+    assert_eq!(uri.query().unwrap(), "");
 }

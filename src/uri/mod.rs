@@ -240,7 +240,7 @@ impl Uri {
 
         let fragment = match src.fragment {
             Some(fragment) => fragment,
-            None => Fragment::empty(),
+            None => Fragment::none(),
         };
 
         Ok(Uri {
@@ -291,7 +291,7 @@ impl Uri {
                             scheme: Scheme::empty(),
                             authority: Authority::empty(),
                             path_and_query: PathAndQuery::slash(),
-                            fragment: Fragment::empty(),
+                            fragment: Fragment::none(),
                         });
                     }
                     b'*' => {
@@ -299,7 +299,7 @@ impl Uri {
                             scheme: Scheme::empty(),
                             authority: Authority::empty(),
                             path_and_query: PathAndQuery::star(),
-                            fragment: Fragment::empty(),
+                            fragment: Fragment::none(),
                         });
                     }
                     _ => {
@@ -309,7 +309,7 @@ impl Uri {
                             scheme: Scheme::empty(),
                             authority: authority,
                             path_and_query: PathAndQuery::empty(),
-                            fragment: Fragment::empty(),
+                            fragment: Fragment::none(),
                         });
                     }
                 }
@@ -323,13 +323,13 @@ impl Uri {
             let path_and_query = PathAndQuery::from_shared(path_and_query)?;
 
             let fragment = if s.is_empty() {
-                Fragment::empty()
+                Fragment::none()
             } else {
                 if s[0] == b'#' {
                     s.advance(1);
                     Fragment::from_shared(s)
                 } else {
-                    Fragment::empty()
+                    Fragment::none()
                 }
             };
 
@@ -704,11 +704,7 @@ impl Uri {
     /// Get the fragment of this `Uri`
     #[inline]
     pub fn fragment(&self) -> Option<&str> {
-        if self.fragment.data.is_empty() {
-            None
-        } else {
-            Some(self.fragment.as_str())
-        }
+        self.fragment.as_str()
     }
 
     fn has_path(&self) -> bool {
@@ -823,7 +819,7 @@ impl From<Uri> for Parts {
             Some(src.authority)
         };
 
-        let fragment = if src.fragment.data.is_empty() {
+        let fragment = if src.fragment.is_none() {
             None
         } else {
             Some(src.fragment)
@@ -879,7 +875,7 @@ fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
             scheme: scheme.into(),
             authority: authority,
             path_and_query: PathAndQuery::empty(),
-            fragment: Fragment::empty(),
+            fragment: Fragment::none(),
         });
     }
 
@@ -899,13 +895,13 @@ fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
     let path_and_query = PathAndQuery::from_shared(path_and_query)?;
 
     let fragment = if s.is_empty() {
-        Fragment::empty()
+        Fragment::none()
     } else {
         if s[0] == b'#' {
             s.advance(1);
             Fragment::from_shared(s)
         } else {
-            Fragment::empty()
+            Fragment::none()
         }
     };
 
@@ -941,6 +937,10 @@ impl PartialEq for Uri {
         }
 
         if self.query() != other.query() {
+            return false;
+        }
+
+        if self.fragment() != other.fragment() {
             return false;
         }
 
@@ -1023,6 +1023,28 @@ impl PartialEq<str> for Uri {
             other = &other[query.len()..];
         }
 
+        if let Some(fragment) = self.fragment() {
+            if other.len() == 0 {
+                return fragment.len() == 0;
+            }
+
+            if other[0] != b'#' {
+                return false;
+            }
+
+            other = &other[1..];
+
+            if other.len() < fragment.len() {
+                return false;
+            }
+
+            if fragment.as_bytes() != &other[..fragment.len()] {
+                return false;
+            }
+
+            other = &other[fragment.len()..];
+        }
+
         other.is_empty() || other[0] == b'#'
     }
 }
@@ -1055,7 +1077,7 @@ impl Default for Uri {
             scheme: Scheme::empty(),
             authority: Authority::empty(),
             path_and_query: PathAndQuery::slash(),
-            fragment: Fragment::empty(),
+            fragment: Fragment::none(),
         }
     }
 }
@@ -1074,6 +1096,10 @@ impl fmt::Display for Uri {
 
         if let Some(query) = self.query() {
             write!(f, "?{}", query)?;
+        }
+
+        if let Some(fragment) = self.fragment() {
+            write!(f, "#{}", fragment)?;
         }
 
         Ok(())
@@ -1168,6 +1194,11 @@ impl Hash for Uri {
         if let Some(query) = self.query() {
             b'?'.hash(state);
             Hash::hash_slice(query.as_bytes(), state);
+        }
+
+        if let Some(fragment) = self.fragment() {
+            b'#'.hash(state);
+            Hash::hash_slice(fragment.as_bytes(), state);
         }
     }
 }
