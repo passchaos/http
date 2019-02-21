@@ -469,3 +469,21 @@ fn test_partial_eq_path_with_terminating_questionmark() {
 
     assert_eq!(uri, a);
 }
+
+#[test]
+fn test_fragment() {
+    let a = "https://example.com/data.csv#row=4";
+    let uri = Uri::from_str(a).expect("parse failed");
+
+    assert_eq!(uri.fragment().unwrap(), "row=4");
+
+    let a = "https://example.com/data.csv#";
+    let uri = Uri::from_str(a).expect("parse failed");
+
+    assert_eq!(uri.fragment(), None);
+
+    let a = "https://example.com/data.csv?a=bc";
+    let uri = Uri::from_str(a).expect("parse failed");
+
+    assert_eq!(uri.fragment(), None);
+}

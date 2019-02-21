@@ -322,7 +322,17 @@ impl Uri {
             let path_and_query = s.split_to(path_and_query_end);
             let path_and_query = PathAndQuery::from_shared(path_and_query)?;
 
-            let fragment = Fragment::from_shared(s);
+            let fragment = if s.is_empty() {
+                Fragment::empty()
+            } else {
+                if s[0] == b'#' {
+                    s.advance(1);
+                    Fragment::from_shared(s)
+                } else {
+                    Fragment::empty()
+                }
+            };
+
             return Ok(Uri {
                 scheme: Scheme::empty(),
                 authority: Authority::empty(),
@@ -888,7 +898,16 @@ fn parse_full(mut s: Bytes) -> Result<Uri, InvalidUriBytes> {
     let path_and_query = s.split_to(path_and_query_end);
     let path_and_query = PathAndQuery::from_shared(path_and_query)?;
 
-    let fragment = Fragment::from_shared(s);
+    let fragment = if s.is_empty() {
+        Fragment::empty()
+    } else {
+        if s[0] == b'#' {
+            s.advance(1);
+            Fragment::from_shared(s)
+        } else {
+            Fragment::empty()
+        }
+    };
 
     Ok(Uri {
         scheme: scheme.into(),
